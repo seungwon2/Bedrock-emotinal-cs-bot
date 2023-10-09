@@ -6,6 +6,8 @@ import * as cdk from "aws-cdk-lib";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as iam from "aws-cdk-lib/aws-iam";
 
 export class EmotionchatbotStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -36,6 +38,28 @@ export class EmotionchatbotStack extends Stack {
       runtime: lambda.Runtime.PYTHON_3_9,
     });
 
+    //service execution role
+    emotionLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["comprehend:*"],
+        resources: ["*"],
+      })
+    );
+
+    bedrockLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["*"],
+        resources: ["*"],
+      })
+    );
+
+    snsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["*"],
+        resources: ["*"],
+      })
+    );
+
     //task generation
     const emotion = new tasks.LambdaInvoke(this, "emotionLambda", {
       lambdaFunction: emotionLambda,
@@ -51,7 +75,7 @@ export class EmotionchatbotStack extends Stack {
     });
 
     //chain
-    const choice = new sfn.Choice(this, "Did it work?");
+    const choice = new sfn.Choice(this, "Is emotion Negative?");
     const successState = new sfn.Pass(this, "SuccessState");
     choice.when(sfn.Condition.stringEquals("$.emotion", "NEGATIVE"), sns);
     choice.when(
@@ -62,6 +86,7 @@ export class EmotionchatbotStack extends Stack {
       sfn.Condition.stringEquals("$.emotion", "NEUTRAL"),
       successState
     );
+    bedrock.next(choice);
     const definition = emotion.next(bedrock);
 
     //statemachine
