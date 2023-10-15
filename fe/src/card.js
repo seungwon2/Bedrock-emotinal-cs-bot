@@ -9,9 +9,25 @@ export default function Card(props) {
   const [generated, setGenerated] = useState("hi");
   const [modify, setModify] = useState(generated);
 
-  const handleOnClick = () => {
+  async function handleOnClick() {
     setClicked(true);
-  };
+    await axios
+      .post(
+        "https://cors-anywhere.herokuapp.com/https://wneol25oo1.execute-api.us-east-1.amazonaws.com/prod/",
+        {
+          input: "이 댓글에 대한 사장님의 리뷰를 작성해줘." + props.content,
+          stateMachineArn:
+            "arn:aws:states:us-east-1:105236167405:stateMachine:stateMachineE926C166-xV273wDj9wtB",
+        }
+      )
+      .then(function (res) {
+        console.log(res.data);
+        setModify(res.data.generated);
+      })
+      .catch(function (err) {
+        console.log(err.response.data);
+      });
+  }
   const handleChange = (e) => {
     setModify(e.target.value);
     console.log("modify: " + modify);

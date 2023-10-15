@@ -11,7 +11,7 @@ comprehend = boto3.client('comprehend')
 
 
 def lambda_handler(event, context):
-    event = event['querystring']
+    event = event['body']
     emotion_result = emotion_detect(event, context)
     emotion = emotion_result["sessionAttributes"]["sentiment"]
     # input 받아서 돌리는 것으로.. 앞단에서 조작

@@ -11,4 +11,10 @@ def lambda_handler(event, context):
     Message=f"""사용자로부터 받은 피드백이 도착했습니다. 사용자 피드백: {input}, 자동 생성 메세지: {generated}""",
     Subject='문자',
     )
-    return generated
+
+    result = {}
+    
+    result['emotion'] = emotion
+    result['input'] = input
+    result['generated'] = generated
+    return result

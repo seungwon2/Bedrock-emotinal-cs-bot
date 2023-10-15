@@ -7,7 +7,11 @@ import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as iam from "aws-cdk-lib/aws-iam";
+import { HttpMethods } from "aws-cdk-lib/aws-s3";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 
 export class EmotionchatbotStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -18,7 +22,7 @@ export class EmotionchatbotStack extends Stack {
         fs.readFileSync("lambda/emotion.py", { encoding: "utf-8" })
       ),
       handler: "index.lambda_handler",
-      timeout: cdk.Duration.seconds(3000),
+      timeout: cdk.Duration.seconds(300),
       runtime: lambda.Runtime.PYTHON_3_9,
     });
     const layer = new lambda.LayerVersion(this, "boto3Layer", {
@@ -32,7 +36,7 @@ export class EmotionchatbotStack extends Stack {
         fs.readFileSync("lambda/bedrock.py", { encoding: "utf-8" })
       ),
       handler: "index.lambda_handler",
-      timeout: cdk.Duration.seconds(3000),
+      timeout: cdk.Duration.seconds(300),
       runtime: lambda.Runtime.PYTHON_3_9,
       layers: [layer],
     });
@@ -41,7 +45,7 @@ export class EmotionchatbotStack extends Stack {
         fs.readFileSync("lambda/sns.py", { encoding: "utf-8" })
       ),
       handler: "index.lambda_handler",
-      timeout: cdk.Duration.seconds(3000),
+      timeout: cdk.Duration.seconds(300),
       runtime: lambda.Runtime.PYTHON_3_9,
     });
 
@@ -93,6 +97,7 @@ export class EmotionchatbotStack extends Stack {
       sfn.Condition.stringEquals("$.emotion", "NEUTRAL"),
       successState
     );
+    choice.when(sfn.Condition.stringEquals("$.emotion", "MIXED"), successState);
     bedrock.next(choice);
     const definition = emotion.next(bedrock);
 
@@ -133,5 +138,20 @@ export class EmotionchatbotStack extends Stack {
       "POST",
       apigateway.StepFunctionsIntegration.startExecution(stateMachine)
     );
+    const bucket = new s3.Bucket(this, "Bucket", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+    });
+
+    const distribution = new cloudfront.Distribution(this, "Distribution", {
+      defaultBehavior: { origin: new origins.S3Origin(bucket) }, // Automatically creates an Origin Access Identity
+    });
+
+    const deployment = new s3deploy.BucketDeployment(this, "BucketDeployment", {
+      sources: [s3deploy.Source.asset("assets")],
+      destinationBucket: bucket,
+      retainOnDelete: false,
+      distribution, // Automatically invalidate distribution's edge cache
+    });
   }
 }
