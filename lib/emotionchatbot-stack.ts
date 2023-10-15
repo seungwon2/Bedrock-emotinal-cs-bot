@@ -18,23 +18,30 @@ export class EmotionchatbotStack extends Stack {
         fs.readFileSync("lambda/emotion.py", { encoding: "utf-8" })
       ),
       handler: "index.lambda_handler",
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(3000),
       runtime: lambda.Runtime.PYTHON_3_9,
     });
+    const layer = new lambda.LayerVersion(this, "boto3Layer", {
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_9], // Lambda 함수와 호환되는 런타임 지정
+      code: lambda.Code.fromAsset("lambda/python.zip"), // boto3 패키지가 있는 로컬 경로
+      description: "Lambda Layer with boto3", // 설명 (선택 사항)
+    });
+
     const bedrockLambda = new lambda.Function(this, "bedrock", {
       code: new lambda.InlineCode(
         fs.readFileSync("lambda/bedrock.py", { encoding: "utf-8" })
       ),
       handler: "index.lambda_handler",
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(3000),
       runtime: lambda.Runtime.PYTHON_3_9,
+      layers: [layer],
     });
     const snsLambda = new lambda.Function(this, "sns", {
       code: new lambda.InlineCode(
         fs.readFileSync("lambda/sns.py", { encoding: "utf-8" })
       ),
       handler: "index.lambda_handler",
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(3000),
       runtime: lambda.Runtime.PYTHON_3_9,
     });
 
@@ -92,7 +99,7 @@ export class EmotionchatbotStack extends Stack {
     //statemachine
     const stateMachine = new sfn.StateMachine(this, "stateMachine", {
       definition,
-      timeout: cdk.Duration.minutes(5),
+      timeout: cdk.Duration.minutes(15),
       stateMachineType: sfn.StateMachineType.EXPRESS,
     });
 
@@ -101,11 +108,30 @@ export class EmotionchatbotStack extends Stack {
     bedrockLambda.grantInvoke(stateMachine.role);
     snsLambda.grantInvoke(stateMachine.role);
 
-    //api gateway
-    const api = new apigateway.StepFunctionsRestApi(
-      this,
-      "StepFunctionsRestApi",
-      { stateMachine: stateMachine }
+    const restApi = new apigateway.RestApi(this, "API Endpoint", {
+      deployOptions: {
+        stageName: "prod",
+        metricsEnabled: true,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
+      },
+      restApiName: `StepFunctionAPI`,
+      cloudWatchRole: true,
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS, // 또는 도메인을 제한하려면 실제 도메인 값 사용
+        allowMethods: apigateway.Cors.ALL_METHODS, // 또는 필요한 HTTP 메서드 목록 사용
+        allowHeaders: [
+          "Content-Type",
+          "X-Amz-Date",
+          "Authorization",
+          "X-Api-Key",
+          "X-Amz-Security-Token",
+        ],
+      },
+    });
+    restApi.root.addMethod(
+      "POST",
+      apigateway.StepFunctionsIntegration.startExecution(stateMachine)
     );
   }
 }
