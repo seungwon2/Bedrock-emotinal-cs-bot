@@ -1,4 +1,4 @@
-import { Duration, Stack, StackProps } from "aws-cdk-lib";
+import { Duration, Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as fs from "fs";
@@ -12,6 +12,8 @@ import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { HttpMethods } from "aws-cdk-lib/aws-s3";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as cloudfrontS3 from "@aws-solutions-constructs/aws-cloudfront-s3";
+import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 
 export class EmotionchatbotStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -89,15 +91,13 @@ export class EmotionchatbotStack extends Stack {
     const choice = new sfn.Choice(this, "Is emotion Negative?");
     const successState = new sfn.Pass(this, "SuccessState");
     choice.when(sfn.Condition.stringEquals("$.emotion", "NEGATIVE"), sns);
-    choice.when(
-      sfn.Condition.stringEquals("$.emotion", "POSITIVE"),
-      successState
-    );
-    choice.when(
-      sfn.Condition.stringEquals("$.emotion", "NEUTRAL"),
-      successState
-    );
-    choice.when(sfn.Condition.stringEquals("$.emotion", "MIXED"), successState);
+    choice.otherwise(successState);
+    // choice.when(sfn.Condition.string("$.emotion", "POSITIVE"), successState);
+    // choice.when(
+    //   sfn.Condition.stringEquals("$.emotion", "NEUTRAL"),
+    //   successState
+    // );
+    // choice.when(sfn.Condition.stringEquals("$.emotion", "MIXED"), successState);
     bedrock.next(choice);
     const definition = emotion.next(bedrock);
 
@@ -138,20 +138,26 @@ export class EmotionchatbotStack extends Stack {
       "POST",
       apigateway.StepFunctionsIntegration.startExecution(stateMachine)
     );
-    const bucket = new s3.Bucket(this, "Bucket", {
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+
+    // AWS Solutions Constructs - CloudFront + S3
+    const { s3Bucket, cloudFrontWebDistribution } =
+      new cloudfrontS3.CloudFrontToS3(this, "WebAppCloudFrontS3", {
+        insertHttpSecurityHeaders: false,
+      });
+
+    // Deploy webapp by s3deployment
+    new BucketDeployment(this, "WebAppDeploy", {
+      destinationBucket: s3Bucket!,
+      distribution: cloudFrontWebDistribution,
+      sources: [
+        // Build and deploy a React frontend app
+        Source.asset("./fe/build"),
+      ],
     });
 
-    const distribution = new cloudfront.Distribution(this, "Distribution", {
-      defaultBehavior: { origin: new origins.S3Origin(bucket) }, // Automatically creates an Origin Access Identity
-    });
-
-    const deployment = new s3deploy.BucketDeployment(this, "BucketDeployment", {
-      sources: [s3deploy.Source.asset("assets")],
-      destinationBucket: bucket,
-      retainOnDelete: false,
-      distribution, // Automatically invalidate distribution's edge cache
+    // create CFn output but not to be exported - website URL
+    new CfnOutput(this, "DistributionDomainName", {
+      value: cloudFrontWebDistribution!.distributionDomainName,
     });
   }
 }

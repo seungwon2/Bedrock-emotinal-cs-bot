@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import axios from "axios";
 import styled from "styled-components";
 import Button from "react-bootstrap/Button";
+import Spinner from "react-bootstrap/Spinner";
 
 export default function Card(props) {
   const [clicked, setClicked] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [generated, setGenerated] = useState("hi");
   const [modify, setModify] = useState(generated);
@@ -12,17 +14,19 @@ export default function Card(props) {
   async function handleOnClick() {
     setClicked(true);
     await axios
-      .post(
-        "https://cors-anywhere.herokuapp.com/https://wneol25oo1.execute-api.us-east-1.amazonaws.com/prod/",
-        {
-          input: "이 댓글에 대한 사장님의 리뷰를 작성해줘." + props.content,
-          stateMachineArn:
-            "arn:aws:states:us-east-1:105236167405:stateMachine:stateMachineE926C166-xV273wDj9wtB",
-        }
-      )
+      .post("https://wneol25oo1.execute-api.us-east-1.amazonaws.com/prod/", {
+        input: props.prompt + props.content,
+        stateMachineArn:
+          "arn:aws:states:us-east-1:105236167405:stateMachine:stateMachineE926C166-xV273wDj9wtB",
+      })
       .then(function (res) {
         console.log(res.data);
-        setModify(res.data.generated);
+        setModify(
+          "(AI가 작성한 답변입니다. 답변을 반드시 확인한 후 제출해주세요.) " +
+            res.data.generated
+        );
+        setLoaded(true);
+        setClicked(false);
       })
       .catch(function (err) {
         console.log(err.response.data);
@@ -34,7 +38,7 @@ export default function Card(props) {
   };
   const handleSubmit = () => {
     setSubmitted(true);
-    setClicked(false);
+    setLoaded(false);
   };
   return (
     <Wrapper>
@@ -48,6 +52,14 @@ export default function Card(props) {
         </Button>
       </ButtonWrapper>
       {clicked && (
+        <Loading>
+          <SpinnerWrapper>
+            <Spinner animation="border" variant="light" />
+          </SpinnerWrapper>
+          <Text>답변 생성 중 .. </Text>
+        </Loading>
+      )}
+      {loaded && (
         <>
           <Reply value={modify} onChange={handleChange} />
           <ButtonWrapper>
@@ -59,7 +71,7 @@ export default function Card(props) {
       )}
       {submitted && (
         <>
-          <Title>Reply: </Title>
+          <P>답변</P>
           <Content>{modify}</Content>
         </>
       )}
@@ -84,7 +96,13 @@ const Upper = styled.div`
   justify-content: center;
 `;
 const Title = styled.p`
-  margin: 0;
+  margin: 1rem 0;
+  font-weight: bold;
+`;
+const P = styled.p`
+  margin: 1rem 0;
+  color: white;
+  font-weight: bold;
 `;
 const Content = styled.div`
   display: flex;
@@ -105,4 +123,17 @@ const ButtonWrapper = styled.div`
   display: block;
   margin: 1rem 0rem 1rem 1rem;
   text-align: end;
+`;
+const Text = styled.p`
+  color: white;
+  margin: 1rem 0;
+`;
+const Loading = styled.div`
+  display: flex;
+  justify-content: center;
+  margin: auto;
+  flex-direction: column;
+`;
+const SpinnerWrapper = styled.div`
+  margin: auto;
 `;

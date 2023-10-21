@@ -6,23 +6,8 @@ import reviews from "./review";
 import Card from "./card";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 
 function App() {
-  const handler = (id) => {
-    console.log(id);
-    axios
-      .get(
-        "https://cors-anywhere.herokuapp.com/http://anycompany-alb-1145759004.ap-northeast-2.elb.amazonaws.com/api/products/list"
-      )
-      .then(function (response) {
-        console.log(response.data);
-      })
-      .catch(function (response) {
-        console.log(response);
-      });
-  };
-
   console.log(reviews);
 
   const Wrapper = styled.div`
@@ -84,7 +69,11 @@ function App() {
         </Contents>
         <Row className="justify-content-md-center">
           {reviews.products.map((product) => (
-            <Card content={product.comment} index={product.index} />
+            <Card
+              content={product.comment}
+              index={product.index}
+              prompt={product.prompt}
+            />
           ))}
         </Row>
       </Container>

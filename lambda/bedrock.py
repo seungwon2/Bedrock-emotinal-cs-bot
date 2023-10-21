@@ -10,13 +10,13 @@ def lambda_handler(event, context):
     
     config = botocore.config.Config(
     retries = dict(
-        max_attempts = 30000
+        max_attempts = 10
     ),
     read_timeout = 3000
     )
 
     bedrock = boto3.client(service_name='bedrock-runtime')
-    body = json.dumps({"prompt":f"""\n\nHuman:{input} \n\nAssistant:""", "max_tokens_to_sample": 300,
+    body = json.dumps({"prompt":f"""\n\nHuman:{input} \n\nAssistant:""", "max_tokens_to_sample": 900,
                        "temperature": 0.5, "top_p": 1, "top_k": 250, "stop_sequences":  ["\n\nHuman:"],
                        }, ensure_ascii=False)
 
