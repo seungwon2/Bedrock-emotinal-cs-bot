@@ -3,6 +3,7 @@ import axios from "axios";
 import styled from "styled-components";
 import Button from "react-bootstrap/Button";
 import Spinner from "react-bootstrap/Spinner";
+import Badge from "react-bootstrap/Badge";
 
 export default function Card(props) {
   const [clicked, setClicked] = useState(false);
@@ -14,10 +15,10 @@ export default function Card(props) {
   async function handleOnClick() {
     setClicked(true);
     await axios
-      .post("https://wneol25oo1.execute-api.us-east-1.amazonaws.com/prod/", {
-        input: props.prompt + props.content,
-        stateMachineArn:
-          "arn:aws:states:us-east-1:105236167405:stateMachine:stateMachineE926C166-xV273wDj9wtB",
+      .post(process.env.REACT_APP_API, {
+        input: props.content,
+        info: props.user,
+        stateMachineArn: process.env.REACT_APP_STATEMACHINE,
       })
       .then(function (res) {
         console.log(res.data);
@@ -30,6 +31,7 @@ export default function Card(props) {
       })
       .catch(function (err) {
         console.log(err.response.data);
+        console.log(props.user);
       });
   }
   const handleChange = (e) => {
@@ -45,6 +47,15 @@ export default function Card(props) {
       <Upper>
         <Title>Review #{props.index}</Title>
       </Upper>
+
+      <Profile>
+        <Product>{props.user.product}</Product>
+        <User>
+          <img src="/profile.png" width="50px" />
+          {props.user.name}·{props.user.sex}·{props.user.age}&nbsp;&nbsp;
+          <Badge bg="info">{props.user.purchased}번째 구매</Badge>
+        </User>
+      </Profile>
       <Content>{props.content}</Content>
       <ButtonWrapper>
         <Button variant="success" onClick={handleOnClick}>
@@ -137,3 +148,19 @@ const Loading = styled.div`
 const SpinnerWrapper = styled.div`
   margin: auto;
 `;
+const Profile = styled.div`
+  display: flex;
+  color: #e2e2e2;
+  font-size: 0.9rem;
+  padding: 0.5rem 1.5rem;
+  border-left: solid 1px #e2e2e2;
+  border-right: solid 1px #e2e2e2;
+  align-items: center;
+  justify-content: space-between;
+`;
+const Product = styled.p`
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin: auto 0;
+`;
+const User = styled.div``;

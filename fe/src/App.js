@@ -1,6 +1,5 @@
 import "./App.css";
 import React from "react";
-import axios from "axios";
 import styled from "styled-components";
 import reviews from "./review";
 import Card from "./card";
@@ -72,7 +71,7 @@ function App() {
             <Card
               content={product.comment}
               index={product.index}
-              prompt={product.prompt}
+              user={product.user}
             />
           ))}
         </Row>

@@ -3,7 +3,7 @@ import { Construct } from "constructs";
 import * as cloudfrontS3 from "@aws-solutions-constructs/aws-cloudfront-s3";
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 
-export class FrontendStack extends Stack {
+export class UserInterfaceStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
@@ -19,7 +19,7 @@ export class FrontendStack extends Stack {
       distribution: cloudFrontWebDistribution,
       sources: [
         // Build and deploy a React frontend app
-        Source.asset("../fe/build"),
+        Source.asset("./fe/build"),
       ],
     });
 

@@ -6,22 +6,15 @@ import * as cdk from "aws-cdk-lib";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
-import * as s3 from "aws-cdk-lib/aws-s3";
-import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
-import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as iam from "aws-cdk-lib/aws-iam";
-import { HttpMethods } from "aws-cdk-lib/aws-s3";
-import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
-import * as cloudfrontS3 from "@aws-solutions-constructs/aws-cloudfront-s3";
-import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 
 export class EmotionchatbotStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
     //lambda
-    const emotionLambda = new lambda.Function(this, "emotion", {
+    const getdbLambda = new lambda.Function(this, "getdb", {
       code: new lambda.InlineCode(
-        fs.readFileSync("lambda/emotion.py", { encoding: "utf-8" })
+        fs.readFileSync("lambda/getdb.py", { encoding: "utf-8" })
       ),
       handler: "index.lambda_handler",
       timeout: cdk.Duration.seconds(300),
@@ -52,9 +45,9 @@ export class EmotionchatbotStack extends Stack {
     });
 
     //service execution role
-    emotionLambda.addToRolePolicy(
+    getdbLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["comprehend:*"],
+        actions: ["dynamodb:*"],
         resources: ["*"],
       })
     );
@@ -74,8 +67,8 @@ export class EmotionchatbotStack extends Stack {
     );
 
     //task generation
-    const emotion = new tasks.LambdaInvoke(this, "emotionLambda", {
-      lambdaFunction: emotionLambda,
+    const getdb = new tasks.LambdaInvoke(this, "getdbLambda", {
+      lambdaFunction: getdbLambda,
       outputPath: "$.Payload",
     });
     const bedrock = new tasks.LambdaInvoke(this, "bedrockLambda", {
@@ -92,14 +85,8 @@ export class EmotionchatbotStack extends Stack {
     const successState = new sfn.Pass(this, "SuccessState");
     choice.when(sfn.Condition.stringEquals("$.emotion", "NEGATIVE"), sns);
     choice.otherwise(successState);
-    // choice.when(sfn.Condition.string("$.emotion", "POSITIVE"), successState);
-    // choice.when(
-    //   sfn.Condition.stringEquals("$.emotion", "NEUTRAL"),
-    //   successState
-    // );
-    // choice.when(sfn.Condition.stringEquals("$.emotion", "MIXED"), successState);
     bedrock.next(choice);
-    const definition = emotion.next(bedrock);
+    const definition = getdb.next(bedrock);
 
     //statemachine
     const stateMachine = new sfn.StateMachine(this, "stateMachine", {
@@ -109,7 +96,7 @@ export class EmotionchatbotStack extends Stack {
     });
 
     //lambda role
-    emotionLambda.grantInvoke(stateMachine.role);
+    getdbLambda.grantInvoke(stateMachine.role);
     bedrockLambda.grantInvoke(stateMachine.role);
     snsLambda.grantInvoke(stateMachine.role);
 
@@ -139,25 +126,8 @@ export class EmotionchatbotStack extends Stack {
       apigateway.StepFunctionsIntegration.startExecution(stateMachine)
     );
 
-    // AWS Solutions Constructs - CloudFront + S3
-    const { s3Bucket, cloudFrontWebDistribution } =
-      new cloudfrontS3.CloudFrontToS3(this, "WebAppCloudFrontS3", {
-        insertHttpSecurityHeaders: false,
-      });
-
-    // Deploy webapp by s3deployment
-    new BucketDeployment(this, "WebAppDeploy", {
-      destinationBucket: s3Bucket!,
-      distribution: cloudFrontWebDistribution,
-      sources: [
-        // Build and deploy a React frontend app
-        Source.asset("./fe/build"),
-      ],
-    });
-
-    // create CFn output but not to be exported - website URL
-    new CfnOutput(this, "DistributionDomainName", {
-      value: cloudFrontWebDistribution!.distributionDomainName,
+    new CfnOutput(this, "STATEMACHINE", {
+      value: stateMachine.stateMachineArn,
     });
   }
 }
