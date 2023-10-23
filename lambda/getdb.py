@@ -1,10 +1,9 @@
+import os
 import boto3
 from boto3.dynamodb.conditions import Attr
 
-#DYNAMODB_TABLE_NAME = os.environ['DYNAMODB_TABLE_NAME']
-#REGION = os.environ['REGION']
-DYNAMODB_TABLE_NAME = 'sample'
-REGION = 'us-east-1'
+DYNAMODB_TABLE_NAME = os.environ['DYNAMODB_TABLE_NAME']
+REGION = os.environ['REGION']
 
 dynamodb = boto3.resource('dynamodb', region_name=REGION)
 table = dynamodb.Table(DYNAMODB_TABLE_NAME)

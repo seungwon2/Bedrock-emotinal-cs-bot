@@ -7,10 +7,29 @@ import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as awssns from "aws-cdk-lib/aws-sns";
+import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
 
 export class EmotionchatbotStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
+
+    const infoTable = new dynamodb.Table(this, "information", {
+      partitionKey: { name: "age", type: dynamodb.AttributeType.STRING },
+      stream: dynamodb.StreamViewType.NEW_IMAGE,
+    });
+
+    // Create an SNS topic
+    const myTopic = new awssns.Topic(this, "MyTopic", {
+      displayName: "My Sample SNS Topic",
+    });
+
+    // Create a subscription (e.g., to send notifications to an email)
+    myTopic.addSubscription(
+      new subs.EmailSubscription("your-email@example.com")
+    );
+
     //lambda
     const getdbLambda = new lambda.Function(this, "getdb", {
       code: new lambda.InlineCode(
@@ -18,6 +37,10 @@ export class EmotionchatbotStack extends Stack {
       ),
       handler: "index.lambda_handler",
       timeout: cdk.Duration.seconds(300),
+      environment: {
+        DYNAMODB_TABLE_NAME: infoTable.tableName,
+        REGION: infoTable.env.region,
+      },
       runtime: lambda.Runtime.PYTHON_3_9,
     });
     const layer = new lambda.LayerVersion(this, "boto3Layer", {
@@ -39,6 +62,9 @@ export class EmotionchatbotStack extends Stack {
       code: new lambda.InlineCode(
         fs.readFileSync("lambda/sns.py", { encoding: "utf-8" })
       ),
+      environment: {
+        TOPICARN: myTopic.topicArn,
+      },
       handler: "index.lambda_handler",
       timeout: cdk.Duration.seconds(300),
       runtime: lambda.Runtime.PYTHON_3_9,

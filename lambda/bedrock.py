@@ -1,7 +1,6 @@
 import boto3
 import json
 import botocore
-import time
 
 def lambda_handler(event, context):
     # TODO implement
